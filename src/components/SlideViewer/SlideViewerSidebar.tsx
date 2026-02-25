@@ -84,6 +84,9 @@ const SlideViewerSidebar: React.FC<SlideViewerSidebarProps> = ({
         borderLeftWidth: 0.25,
         overflow: 'hidden',
         background: 'none',
+        position: 'absolute',
+        top: 0,
+        left: 0,
       }}
     >
       <Menu

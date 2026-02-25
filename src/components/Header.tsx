@@ -29,6 +29,7 @@ import { NavLink } from 'react-router-dom'
 import { v4 as uuidv4 } from 'uuid'
 import appPackageJson from '../../package.json'
 import type { User } from '../auth'
+import { useViewerToolbar } from '../contexts/ViewerToolbarContext'
 import type DicomWebManager from '../DicomWebManager'
 import NotificationMiddleware, {
   NotificationMiddlewareEvents,
@@ -99,6 +100,10 @@ interface HeaderProps extends RouteComponentProps {
   onServerSelection: ({ url }: { url: string }) => void
   onUserLogout?: () => void
   showServerSelectionButton: boolean
+  /** Toggle buttons for Case details and Layers (viewer routes only) */
+  viewerPanelToggles?: React.ReactNode
+  /** Toolbar from SlideViewer (viewer routes only), shown between toggles and actions */
+  viewerToolbar?: React.ReactNode
 }
 
 interface ExtendedCustomError extends CustomError {
@@ -586,7 +591,7 @@ class Header extends React.Component<HeaderProps, HeaderState> {
       )
     }
 
-    const infoButton = (
+    const _infoButton = (
       <Button
         icon={InfoOutlined}
         tooltip="Get app info"
@@ -594,7 +599,7 @@ class Header extends React.Component<HeaderProps, HeaderState> {
       />
     )
 
-    const debugButton = (
+    const _debugButton = (
       <Badge count={this.state.errorObj.length} style={{ zIndex: 1000 }}>
         <Badge
           color="green"
@@ -633,7 +638,7 @@ class Header extends React.Component<HeaderProps, HeaderState> {
       )
     }
 
-    const logoUrl = `${process.env.PUBLIC_URL}/logo.svg`
+    const _logoUrl = `${process.env.PUBLIC_URL}/logo.svg`
 
     const selectedServerUrl =
       this.state.serverSelectionMode === 'custom'
@@ -641,7 +646,7 @@ class Header extends React.Component<HeaderProps, HeaderState> {
         : (this.props.clients?.default?.baseURL ??
           this.props.defaultClients?.default?.baseURL)
 
-    const urlInfo =
+    const _urlInfo =
       selectedServerUrl !== null &&
       selectedServerUrl !== undefined &&
       selectedServerUrl !== '' ? (
@@ -663,27 +668,37 @@ class Header extends React.Component<HeaderProps, HeaderState> {
 
     return (
       <>
-        <Layout.Header style={{ width: '100%', padding: '0 14px' }}>
-          <Row style={{ flexWrap: 'nowrap' }}>
+        <Layout.Header
+          style={{
+            width: '100%',
+            padding: '0 14px',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            zIndex: 2,
+            background: 'transparent',
+          }}
+        >
+          <Row
+            style={{
+              flexWrap: 'nowrap',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+            }}
+          >
             <Col style={{ flexShrink: 0 }}>
               <Space align="center" direction="horizontal">
-                <img
-                  src={logoUrl}
-                  alt=""
-                  style={{ height: '64px', margin: '-14px' }}
-                />
+                {this.props.viewerPanelToggles ?? null}
               </Space>
             </Col>
-            <Col flex="auto" style={{ minWidth: 0, overflow: 'hidden' }}>
-              <div style={{ width: '100%', overflow: 'hidden' }}>
-                {this.props.showServerSelectionButton ? urlInfo : ''}
-              </div>
+            <Col style={{ width: '3rem', flexShrink: 0 }} />
+            <Col style={{ flexShrink: 0 }}>
+              {this.props.viewerToolbar ?? null}
             </Col>
+            <Col style={{ width: '3rem', flexShrink: 0 }} />
             <Col style={{ flexShrink: 0 }}>
               <Space direction="horizontal">
                 {worklistButton}
-                {infoButton}
-                {debugButton}
                 {dicomTagBrowserButton}
                 {serverSelectionButton}
                 {user}
@@ -729,5 +744,16 @@ class Header extends React.Component<HeaderProps, HeaderState> {
     )
   }
 }
+
+/**
+ * Header with viewer toolbar from context. Use on viewer routes inside
+ * ViewerToolbarProvider so the SlideViewer toolbar appears in the header.
+ */
+export const HeaderWithToolbar = withRouter(function HeaderWithToolbar(
+  props: React.ComponentProps<typeof Header>,
+): React.ReactElement {
+  const { toolbar } = useViewerToolbar()
+  return <Header {...props} viewerToolbar={toolbar} />
+})
 
 export default withRouter(Header)

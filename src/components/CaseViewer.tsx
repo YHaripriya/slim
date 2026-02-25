@@ -6,6 +6,7 @@ import { Route, Routes, useLocation, useParams } from 'react-router-dom'
 
 import type { AnnotationSettings } from '../AppConfig'
 import type { User } from '../auth'
+import { useViewerPanels } from '../contexts/ViewerPanelsContext'
 import type DicomWebManager from '../DicomWebManager'
 import type { Slide } from '../data/slides'
 import { StorageClasses } from '../data/uids'
@@ -208,6 +209,8 @@ interface ViewerProps extends RouteComponentProps {
 function Viewer(props: ViewerProps): JSX.Element | null {
   const { clients, studyInstanceUID, location, navigate } = props
   const { slides, isLoading } = useSlides({ clients, studyInstanceUID })
+  const panels = useViewerPanels()
+  const caseDetailsOpen = panels.isProvided ? panels.caseDetailsOpen : true
 
   const handleSeriesSelection = ({
     seriesInstanceUID,
@@ -279,39 +282,46 @@ function Viewer(props: ViewerProps): JSX.Element | null {
   }
 
   return (
-    <Layout style={{ height: '100%' }} hasSider>
+    <Layout style={{ height: '100%', position: 'relative' }} hasSider>
       <Layout.Sider
-        width={300}
+        width={caseDetailsOpen ? 300 : 0}
         style={{
           height: '100%',
           borderRight: 'solid',
-          borderRightWidth: 0.25,
+          borderRightWidth: caseDetailsOpen ? 0.25 : 0,
           overflow: 'hidden',
           background: 'none',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          transition: 'width 0.2s ease',
+          zIndex: 1,
         }}
       >
-        <Menu
-          mode="inline"
-          defaultOpenKeys={['patient', 'study', 'clinical-trial', 'slides']}
-          style={{ height: '100%' }}
-          inlineIndent={14}
-        >
-          <Menu.SubMenu key="patient" title="Patient">
-            <Patient metadata={refImage} />
-          </Menu.SubMenu>
-          <Menu.SubMenu key="study" title="Study">
-            <Study metadata={refImage} />
-          </Menu.SubMenu>
-          {clinicalTrialMenu}
-          <Menu.SubMenu key="slides" title="Slides">
-            <SlideList
-              clients={props.clients}
-              metadata={slides}
-              selectedSeriesInstanceUID={selectedSeriesInstanceUID}
-              onSeriesSelection={handleSeriesSelection}
-            />
-          </Menu.SubMenu>
-        </Menu>
+        {caseDetailsOpen && (
+          <Menu
+            mode="inline"
+            defaultOpenKeys={['patient', 'study', 'clinical-trial', 'slides']}
+            style={{ height: '100%' }}
+            inlineIndent={14}
+          >
+            <Menu.SubMenu key="patient" title="Patient">
+              <Patient metadata={refImage} />
+            </Menu.SubMenu>
+            <Menu.SubMenu key="study" title="Study">
+              <Study metadata={refImage} />
+            </Menu.SubMenu>
+            {clinicalTrialMenu}
+            <Menu.SubMenu key="slides" title="Slides">
+              <SlideList
+                clients={props.clients}
+                metadata={slides}
+                selectedSeriesInstanceUID={selectedSeriesInstanceUID}
+                onSeriesSelection={handleSeriesSelection}
+              />
+            </Menu.SubMenu>
+          </Menu>
+        )}
       </Layout.Sider>
 
       <Routes>

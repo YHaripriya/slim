@@ -338,7 +338,7 @@ class Worklist extends React.Component<WorklistProps, WorklistState> {
         <div style={{ padding: 8 }}>
           <Input
             placeholder="Search"
-            value={selectedKeys[0]}
+            value={selectedKeys[0] ? String(selectedKeys[0]) : ''}
             onChange={Worklist.getFilterInputChangeHandler(setSelectedKeys)}
             onPressEnter={this.getFilterPressEnterHandler(
               selectedKeys,

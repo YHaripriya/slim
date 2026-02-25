@@ -16,11 +16,16 @@ import type { ErrorMessageSettings, ServerSettings } from './AppConfig'
 import type { AuthManager, User } from './auth'
 import OidcManager from './auth/OidcManager'
 import CaseViewer from './components/CaseViewer'
-import Header from './components/Header'
+import Header, { HeaderWithToolbar } from './components/Header'
 import InfoPage from './components/InfoPage'
 import MemoryFooter from './components/MemoryFooter'
 import Worklist from './components/Worklist'
 import { ValidationProvider } from './contexts/ValidationContext'
+import {
+  ViewerPanelsProvider,
+  ViewerPanelToggles,
+} from './contexts/ViewerPanelsContext'
+import { ViewerToolbarProvider } from './contexts/ViewerToolbarContext'
 import DicomWebManager from './DicomWebManager'
 import { StorageClasses } from './data/uids'
 import NotificationMiddleware, {
@@ -558,57 +563,67 @@ class App extends React.Component<AppProps, AppState> {
             <Route
               path="/studies/:studyInstanceUID/*"
               element={
-                <Layout style={layoutStyle}>
-                  <Header
-                    app={appInfo}
-                    user={this.state.user}
-                    showWorklistButton={enableWorklist}
-                    onServerSelection={this.handleServerSelection}
-                    onUserLogout={isLogoutPossible ? onLogout : undefined}
-                    showServerSelectionButton={enableServerSelection}
-                    clients={this.state.clients}
-                    defaultClients={this.state.defaultClients}
-                  />
-                  <Layout.Content style={layoutContentStyle}>
-                    <ParametrizedCaseViewer
-                      clients={this.state.clients}
-                      user={this.state.user}
-                      config={this.props.config}
-                      app={appInfo}
-                    />
-                  </Layout.Content>
-                  {enableMemoryMonitoring && (
-                    <MemoryFooter enabled={enableMemoryMonitoring} />
-                  )}
-                </Layout>
+                <ViewerPanelsProvider>
+                  <ViewerToolbarProvider>
+                    <Layout style={layoutStyle}>
+                      <HeaderWithToolbar
+                        app={appInfo}
+                        user={this.state.user}
+                        showWorklistButton={enableWorklist}
+                        onServerSelection={this.handleServerSelection}
+                        onUserLogout={isLogoutPossible ? onLogout : undefined}
+                        showServerSelectionButton={enableServerSelection}
+                        clients={this.state.clients}
+                        defaultClients={this.state.defaultClients}
+                        viewerPanelToggles={<ViewerPanelToggles />}
+                      />
+                      <Layout.Content style={layoutContentStyle}>
+                        <ParametrizedCaseViewer
+                          clients={this.state.clients}
+                          user={this.state.user}
+                          config={this.props.config}
+                          app={appInfo}
+                        />
+                      </Layout.Content>
+                      {enableMemoryMonitoring && (
+                        <MemoryFooter enabled={enableMemoryMonitoring} />
+                      )}
+                    </Layout>
+                  </ViewerToolbarProvider>
+                </ViewerPanelsProvider>
               }
             />
             <Route
               path="/projects/:project/locations/:location/datasets/:dataset/dicomStores/:dicomStore/study/:studyInstanceUID/*"
               element={
-                <Layout style={layoutStyle}>
-                  <Header
-                    app={appInfo}
-                    user={this.state.user}
-                    showWorklistButton={enableWorklist}
-                    onServerSelection={this.handleServerSelection}
-                    onUserLogout={isLogoutPossible ? onLogout : undefined}
-                    showServerSelectionButton={enableServerSelection}
-                    clients={this.state.clients}
-                    defaultClients={this.state.defaultClients}
-                  />
-                  <Layout.Content style={layoutContentStyle}>
-                    <ParametrizedCaseViewer
-                      clients={this.state.clients}
-                      user={this.state.user}
-                      config={this.props.config}
-                      app={appInfo}
-                    />
-                  </Layout.Content>
-                  {enableMemoryMonitoring && (
-                    <MemoryFooter enabled={enableMemoryMonitoring} />
-                  )}
-                </Layout>
+                <ViewerPanelsProvider>
+                  <ViewerToolbarProvider>
+                    <Layout style={layoutStyle}>
+                      <HeaderWithToolbar
+                        app={appInfo}
+                        user={this.state.user}
+                        showWorklistButton={enableWorklist}
+                        onServerSelection={this.handleServerSelection}
+                        onUserLogout={isLogoutPossible ? onLogout : undefined}
+                        showServerSelectionButton={enableServerSelection}
+                        clients={this.state.clients}
+                        defaultClients={this.state.defaultClients}
+                        viewerPanelToggles={<ViewerPanelToggles />}
+                      />
+                      <Layout.Content style={layoutContentStyle}>
+                        <ParametrizedCaseViewer
+                          clients={this.state.clients}
+                          user={this.state.user}
+                          config={this.props.config}
+                          app={appInfo}
+                        />
+                      </Layout.Content>
+                      {enableMemoryMonitoring && (
+                        <MemoryFooter enabled={enableMemoryMonitoring} />
+                      )}
+                    </Layout>
+                  </ViewerToolbarProvider>
+                </ViewerPanelsProvider>
               }
             />
             <Route

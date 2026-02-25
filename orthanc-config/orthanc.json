@@ -1,0 +1,24 @@
+{
+  "Name": "Orthanc",
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": false,
+
+  "HttpServerEnabled": true,
+  "HttpDescribeErrors": true,
+
+  "DicomWeb": {
+    "Enable": true,
+    "Root": "/dicom-web",
+    "EnableWado": true,
+    "EnableQido": true,
+    "EnableStow": true,
+    "EnableCors": true
+  },
+
+  "HttpHeaders": {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  }
+}
+

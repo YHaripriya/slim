@@ -36,6 +36,20 @@
   border: 2px solid @primary-color !important;
 }
 
+/* Reposition overview map when Slide metadata (left) or Overlay masks (right) panel is open */
+[data-case-details-open='true'] .ol-overviewmap {
+  left: 20rem !important;
+  right: auto !important;
+}
+[data-viewer-layers-open='true'] .ol-overviewmap {
+  left: 20rem !important;
+  right: auto !important;
+}
+[data-case-details-open='true'][data-viewer-layers-open='true'] .ol-overviewmap {
+  left: 20rem !important;
+  right: auto !important;
+}
+
 img {
   object-fit: contain;
   max-height: 100%;
