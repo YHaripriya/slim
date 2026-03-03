@@ -309,7 +309,12 @@ class Worklist extends React.Component<WorklistProps, WorklistState> {
 
     return (
       <Table<dmv.metadata.Study>
-        style={{ cursor: 'pointer' }}
+        style={{
+          cursor: 'pointer',
+          zIndex: 10,
+          position: 'absolute',
+          width: '100%',
+        }}
         columns={columns}
         rowKey={getRowKey}
         dataSource={this.state.studies}
@@ -372,7 +377,9 @@ class Worklist extends React.Component<WorklistProps, WorklistState> {
         </div>
       ),
       filterIcon: (filtered: boolean) => (
-        <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
+        <SearchOutlined
+          style={{ color: filtered ? 'rgb(50, 120, 255)' : undefined }}
+        />
       ),
     }
   }

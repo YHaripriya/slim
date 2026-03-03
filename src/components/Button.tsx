@@ -1,6 +1,7 @@
 import { Button as Btn, Divider, Tooltip } from 'antd'
 import React from 'react'
 import type { IconType } from 'react-icons'
+import { StyledButton } from './styledElements/styleHelper'
 
 interface ButtonProps {
   icon:
@@ -11,6 +12,8 @@ interface ButtonProps {
   label?: string
   onClick?: (options: React.SyntheticEvent) => void
   isSelected?: boolean
+  /** Use design-system toolbar style (StyledButton) when set */
+  variant?: 'toolbar'
 }
 
 /**
@@ -44,8 +47,20 @@ class Button extends React.Component<ButtonProps, Record<string, never>> {
       )
     }
 
+    const useToolbarStyle = this.props.variant === 'toolbar'
+
     let button: React.ReactNode
-    if (this.props.isSelected ?? false) {
+    if (useToolbarStyle) {
+      button = (
+        <StyledButton
+          onClick={this.handleClick}
+          icon={<Icon />}
+          selected={this.props.isSelected ?? false}
+        >
+          {text}
+        </StyledButton>
+      )
+    } else if (this.props.isSelected ?? false) {
       button = (
         <Btn
           onClick={this.handleClick}

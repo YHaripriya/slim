@@ -25,6 +25,7 @@ import {
 import type { RadioChangeEvent } from 'antd/es/radio'
 import { detect } from 'detect-browser'
 import React from 'react'
+import ReactDOM from 'react-dom'
 import { NavLink } from 'react-router-dom'
 import { v4 as uuidv4 } from 'uuid'
 import appPackageJson from '../../package.json'
@@ -104,6 +105,8 @@ interface HeaderProps extends RouteComponentProps {
   viewerPanelToggles?: React.ReactNode
   /** Toolbar from SlideViewer (viewer routes only), shown between toggles and actions */
   viewerToolbar?: React.ReactNode
+  /** DOM element in the viewer header right slot; when set, worklist/DICOM buttons are portaled here */
+  viewerHeaderRightContainer?: HTMLElement | null
 }
 
 interface ExtendedCustomError extends CustomError {
@@ -666,17 +669,30 @@ class Header extends React.Component<HeaderProps, HeaderState> {
         </Tooltip>
       ) : null
 
+    const viewerHeaderRightContainer = this.props.viewerHeaderRightContainer
+    const portalContent =
+      this.props.viewerToolbar != null &&
+      viewerHeaderRightContainer != null &&
+      ReactDOM.createPortal(
+        <Space direction="horizontal" size="middle">
+          {worklistButton}
+          {dicomTagBrowserButton}
+        </Space>,
+        viewerHeaderRightContainer,
+      )
+
     return (
       <>
         <Layout.Header
           style={{
-            width: '100%',
+            width: 'calc(100% - 4rem)',
             padding: '0 14px',
             position: 'fixed',
             top: 0,
             left: 0,
             zIndex: 2,
             background: 'transparent',
+            marginLeft: '4rem',
           }}
         >
           <Row
@@ -686,11 +702,6 @@ class Header extends React.Component<HeaderProps, HeaderState> {
               justifyContent: 'flex-end',
             }}
           >
-            <Col style={{ flexShrink: 0 }}>
-              <Space align="center" direction="horizontal">
-                {this.props.viewerPanelToggles ?? null}
-              </Space>
-            </Col>
             <Col style={{ width: '3rem', flexShrink: 0 }} />
             <Col style={{ flexShrink: 0 }}>
               {this.props.viewerToolbar ?? null}
@@ -698,12 +709,15 @@ class Header extends React.Component<HeaderProps, HeaderState> {
             <Col style={{ width: '3rem', flexShrink: 0 }} />
             <Col style={{ flexShrink: 0 }}>
               <Space direction="horizontal">
-                {worklistButton}
-                {dicomTagBrowserButton}
+                {this.props.viewerToolbar == null ? worklistButton : null}
+                {this.props.viewerToolbar == null
+                  ? dicomTagBrowserButton
+                  : null}
                 {serverSelectionButton}
                 {user}
               </Space>
             </Col>
+            <Col>{portalContent}</Col>
           </Row>
         </Layout.Header>
 
@@ -752,8 +766,14 @@ class Header extends React.Component<HeaderProps, HeaderState> {
 export const HeaderWithToolbar = withRouter(function HeaderWithToolbar(
   props: React.ComponentProps<typeof Header>,
 ): React.ReactElement {
-  const { toolbar } = useViewerToolbar()
-  return <Header {...props} viewerToolbar={toolbar} />
+  const { toolbar, viewerHeaderRightContainer } = useViewerToolbar()
+  return (
+    <Header
+      {...props}
+      viewerToolbar={toolbar}
+      viewerHeaderRightContainer={viewerHeaderRightContainer}
+    />
+  )
 })
 
 export default withRouter(Header)

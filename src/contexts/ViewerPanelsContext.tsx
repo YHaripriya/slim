@@ -1,6 +1,7 @@
 import { Button, Space, Tooltip } from 'antd'
 import type React from 'react'
 import { createContext, useCallback, useContext, useState } from 'react'
+import { StyledButton } from '../components/styledElements/styleHelper'
 
 export interface ViewerPanelsState {
   caseDetailsOpen: boolean
@@ -87,24 +88,12 @@ export function ViewerPanelToggles(): React.ReactElement | null {
           panels.caseDetailsOpen ? 'Hide Case details' : 'Show Case details'
         }
       >
-        <Button
-          type={panels.caseDetailsOpen ? 'primary' : 'default'}
+        <StyledButton
+          selected={panels.caseDetailsOpen ?? false}
           onClick={panels.toggleCaseDetails}
-          style={{
-            minWidth: '4rem',
-            height: '2rem',
-            borderRadius: '0.25rem',
-            ...(panels.caseDetailsOpen
-              ? {}
-              : {
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-                  borderColor: 'rgba(0,0,0,0.15)',
-                  color: 'rgba(0,0,0,0.88)',
-                }),
-          }}
         >
           Slide Metadata
-        </Button>
+        </StyledButton>
       </Tooltip>
       <Tooltip title={panels.viewerLayersOpen ? 'Hide Layers' : 'Show Layers'}>
         <Button

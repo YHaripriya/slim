@@ -37,11 +37,10 @@
     ]
   },
   "devDependencies": {
-    "ajv": "6.12.6",
-    "@biomejs/biome": "^2.0.0",
     "@babel/preset-env": "^7.15.0",
     "@babel/preset-react": "^7.17.12",
     "@babel/preset-typescript": "^7.17.12",
+    "@biomejs/biome": "^2.0.0",
     "@craco/craco": "^6.4.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^12.0.0",
@@ -60,6 +59,7 @@
     "@types/react-router-dom": "^5.3.3",
     "@types/retry": "^0.12.1",
     "@types/uuid": "^8.3.0",
+    "ajv": "6.12.6",
     "antd": "^4.22.8",
     "classnames": "^2.2.6",
     "copy-webpack-plugin": "9.1.0",
@@ -71,6 +71,7 @@
     "eslint": "^8.57.0",
     "eslint-plugin-sonarjs": "^0.25.0",
     "gh-pages": "^5.0.0",
+    "husky": "^9.1.7",
     "oidc-client": "^1.11.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -81,11 +82,11 @@
     "retry": "^0.13.1",
     "semantic-release": "21.1.2",
     "sonarqube-scanner": "^4.3.0",
-    "typescript": "^4.7.4",
-    "husky": "^9.1.7"
+    "typescript": "^4.7.4"
   },
   "dependencies": {
-    "react-error-boundary": "^3.1.4"
+    "react-error-boundary": "^3.1.4",
+    "styled-components": "^6.3.11"
   },
   "overrides": {
     "nth-check": "2.0.1",

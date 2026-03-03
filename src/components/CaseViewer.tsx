@@ -1,8 +1,15 @@
-import { Layout, Menu } from 'antd'
+import { Layout, Menu, Spin } from 'antd'
 // skipcq: JS-C1003
 import * as dcmjs from 'dcmjs'
+import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import { Route, Routes, useLocation, useParams } from 'react-router-dom'
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useParams,
+} from 'react-router-dom'
 
 import type { AnnotationSettings } from '../AppConfig'
 import type { User } from '../auth'
@@ -45,12 +52,46 @@ interface NaturalizedInstance {
 const findSeriesSlide = (
   slides: Slide[],
   seriesInstanceUID: string,
-): Slide | undefined => {
-  return slides.find((slide: Slide) => {
-    return slide.seriesInstanceUIDs.find((uid: string) => {
-      return uid === seriesInstanceUID
-    })
-  })
+): Slide | undefined =>
+  slides.find((slide: Slide) =>
+    slide.seriesInstanceUIDs.some((uid: string) => uid === seriesInstanceUID),
+  )
+
+/** Loading placeholder when slides are not yet available (avoids redirect loop). */
+function ViewerLoadingContent(): JSX.Element {
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 200,
+      }}
+    >
+      <Spin size="large" tip="Loading slides…" />
+    </div>
+  )
+}
+
+/** Redirects from study-only URL to first series so the slide viewer is shown. */
+function RedirectToFirstSeries({
+  slides,
+  pathname,
+}: {
+  slides: Slide[]
+  pathname: string
+}): JSX.Element {
+  if (slides.length === 0) {
+    return <ViewerLoadingContent />
+  }
+  const firstSlide = slides[0]
+  const firstSeriesUID = firstSlide?.seriesInstanceUIDs?.[0] ?? ''
+  if (!firstSeriesUID) {
+    return <ViewerLoadingContent />
+  }
+  const to = `${pathname}/series/${firstSeriesUID}`
+  return <Navigate to={to} replace />
 }
 
 function ParametrizedSlideViewer({
@@ -61,6 +102,8 @@ function ParametrizedSlideViewer({
   preload,
   enableAnnotationTools,
   annotations,
+  onSeriesSelection,
+  slideMetadataContent,
 }: {
   clients: { [key: string]: DicomWebManager }
   slides: Slide[]
@@ -74,6 +117,8 @@ function ParametrizedSlideViewer({
   preload: boolean
   enableAnnotationTools: boolean
   annotations: AnnotationSettings[]
+  onSeriesSelection?: (seriesInstanceUID: string) => void
+  slideMetadataContent?: ReactNode
 }): JSX.Element | null {
   const { studyInstanceUID = '', seriesInstanceUID = '' } = useParams<{
     studyInstanceUID: string
@@ -170,7 +215,36 @@ function ParametrizedSlideViewer({
     presentationStateUID = stateParam !== null ? stateParam : undefined
   }
 
-  let viewer = null
+  const currentSlideIndex0 =
+    selectedSlide != null
+      ? slides.findIndex((s) =>
+          s.seriesInstanceUIDs.includes(seriesInstanceUID),
+        )
+      : -1
+  const slideIndex = currentSlideIndex0 >= 0 ? currentSlideIndex0 + 1 : 0
+  const totalSlides = slides.length
+  const onPrevSlide =
+    onSeriesSelection != null && currentSlideIndex0 > 0
+      ? () => {
+          const prev = slides[currentSlideIndex0 - 1]
+          if (prev?.seriesInstanceUIDs?.[0] != null) {
+            onSeriesSelection(prev.seriesInstanceUIDs[0])
+          }
+        }
+      : undefined
+  const onNextSlide =
+    onSeriesSelection != null &&
+    currentSlideIndex0 >= 0 &&
+    currentSlideIndex0 < slides.length - 1
+      ? () => {
+          const next = slides[currentSlideIndex0 + 1]
+          if (next?.seriesInstanceUIDs?.[0] != null) {
+            onSeriesSelection(next.seriesInstanceUIDs[0])
+          }
+        }
+      : undefined
+
+  let viewer: ReactNode = null
   if (selectedSlide != null && selectedSlide !== undefined) {
     viewer = (
       <SlideViewer
@@ -185,10 +259,30 @@ function ParametrizedSlideViewer({
         app={app}
         user={user}
         derivedDataset={derivedDataset ?? undefined}
+        slideIndex={slideIndex}
+        totalSlides={totalSlides}
+        onPrevSlide={onPrevSlide}
+        onNextSlide={onNextSlide}
+        slideMetadataContent={slideMetadataContent}
       />
     )
   }
-  return viewer
+  if (viewer != null) return viewer
+  if (slides.length === 0) return <ViewerLoadingContent />
+  // Have slides but no selectedSlide yet (resolving series or no match) – show spinner instead of blank
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 200,
+      }}
+    >
+      <Spin size="large" tip="Preparing viewer…" />
+    </div>
+  )
 }
 
 interface ViewerProps extends RouteComponentProps {
@@ -208,7 +302,7 @@ interface ViewerProps extends RouteComponentProps {
 
 function Viewer(props: ViewerProps): JSX.Element | null {
   const { clients, studyInstanceUID, location, navigate } = props
-  const { slides, isLoading } = useSlides({ clients, studyInstanceUID })
+  const { slides } = useSlides({ clients, studyInstanceUID })
   const panels = useViewerPanels()
   const caseDetailsOpen = panels.isProvided ? panels.caseDetailsOpen : true
 
@@ -243,37 +337,26 @@ function Viewer(props: ViewerProps): JSX.Element | null {
     navigate(urlPath, { replace: true })
   }
 
-  if (isLoading) {
-    return null
-  }
-
-  if (slides.length === 0) {
-    return null
-  }
-
   const firstSlide = slides[0]
-  const volumeInstances = firstSlide.volumeImages
-  if (volumeInstances.length === 0) {
-    return null
-  }
-  const refImage = volumeInstances[0]
+  const volumeInstances = firstSlide?.volumeImages ?? []
+  const refImage = volumeInstances.length > 0 ? volumeInstances[0] : undefined
 
   /* If a series is encoded in the path, route the viewer to this series.
    * Otherwise select the first series correspondent to
    * the first slide contained in the study.
    */
-  let selectedSeriesInstanceUID: string
-  if (location.pathname.includes('series/')) {
+  let selectedSeriesInstanceUID: string = ''
+  if (refImage != null && location.pathname.includes('series/')) {
     const seriesFragment = location.pathname.split('series/')[1]
-    selectedSeriesInstanceUID = seriesFragment.includes('/')
+    selectedSeriesInstanceUID = seriesFragment?.includes('/')
       ? seriesFragment.split('/')[0]
-      : seriesFragment
-  } else {
+      : (seriesFragment ?? '')
+  } else if (refImage != null) {
     selectedSeriesInstanceUID = volumeInstances[0].SeriesInstanceUID
   }
 
-  let clinicalTrialMenu: React.ReactNode
-  if (refImage.ClinicalTrialSponsorName != null) {
+  let clinicalTrialMenu: ReactNode = null
+  if (refImage?.ClinicalTrialSponsorName != null) {
     clinicalTrialMenu = (
       <Menu.SubMenu key="clinical-trial" title="Clinical Trial">
         <ClinicalTrial metadata={refImage} />
@@ -281,65 +364,133 @@ function Viewer(props: ViewerProps): JSX.Element | null {
     )
   }
 
+  const slideMetadataContent: ReactNode =
+    refImage != null ? (
+      <Menu
+        mode="inline"
+        defaultOpenKeys={['patient', 'study', 'clinical-trial', 'slides']}
+        style={{ height: '100%', borderRight: 'none' }}
+        inlineIndent={14}
+      >
+        <Menu.SubMenu key="patient" title="Patient">
+          <Patient metadata={refImage} />
+        </Menu.SubMenu>
+        <Menu.SubMenu key="study" title="Study">
+          <Study metadata={refImage} />
+        </Menu.SubMenu>
+        {clinicalTrialMenu}
+        <Menu.SubMenu key="slides" title="Slides">
+          <SlideList
+            clients={props.clients}
+            metadata={slides}
+            selectedSeriesInstanceUID={selectedSeriesInstanceUID}
+            onSeriesSelection={handleSeriesSelection}
+          />
+        </Menu.SubMenu>
+      </Menu>
+    ) : null
+
+  const isOnSeriesRoute = location.pathname.includes('series/')
+
   return (
-    <Layout style={{ height: '100%', position: 'relative' }} hasSider>
-      <Layout.Sider
-        width={caseDetailsOpen ? 300 : 0}
+    <Layout
+      style={{
+        height: '100%',
+        minHeight: 0,
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'row',
+      }}
+      hasSider
+    >
+      {!isOnSeriesRoute && (
+        <Layout.Sider
+          width={caseDetailsOpen ? 300 : 0}
+          style={{
+            height: '100%',
+            borderRight: 'solid',
+            borderRightWidth: caseDetailsOpen ? 0.25 : 0,
+            overflow: 'hidden',
+            background: 'none',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            transition: 'width 0.2s ease',
+            zIndex: 1,
+          }}
+        >
+          {caseDetailsOpen && refImage != null && (
+            <Menu
+              mode="inline"
+              defaultOpenKeys={['patient', 'study', 'clinical-trial', 'slides']}
+              style={{ height: '100%' }}
+              inlineIndent={14}
+            >
+              <Menu.SubMenu key="patient" title="Patient">
+                <Patient metadata={refImage} />
+              </Menu.SubMenu>
+              <Menu.SubMenu key="study" title="Study">
+                <Study metadata={refImage} />
+              </Menu.SubMenu>
+              {clinicalTrialMenu}
+              <Menu.SubMenu key="slides" title="Slides">
+                <SlideList
+                  clients={props.clients}
+                  metadata={slides}
+                  selectedSeriesInstanceUID={selectedSeriesInstanceUID}
+                  onSeriesSelection={handleSeriesSelection}
+                />
+              </Menu.SubMenu>
+            </Menu>
+          )}
+        </Layout.Sider>
+      )}
+
+      {/* Wrapper gives the slide viewer a defined size; without it height:100% collapses to 0 */}
+      <div
         style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 0,
+          marginLeft: !isOnSeriesRoute && caseDetailsOpen ? 300 : 0,
+          transition: 'margin-left 0.2s ease',
           height: '100%',
-          borderRight: 'solid',
-          borderRightWidth: caseDetailsOpen ? 0.25 : 0,
+          display: 'flex',
+          flexDirection: 'column',
           overflow: 'hidden',
-          background: 'none',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          transition: 'width 0.2s ease',
-          zIndex: 1,
+          position: 'relative',
         }}
       >
-        {caseDetailsOpen && (
-          <Menu
-            mode="inline"
-            defaultOpenKeys={['patient', 'study', 'clinical-trial', 'slides']}
-            style={{ height: '100%' }}
-            inlineIndent={14}
-          >
-            <Menu.SubMenu key="patient" title="Patient">
-              <Patient metadata={refImage} />
-            </Menu.SubMenu>
-            <Menu.SubMenu key="study" title="Study">
-              <Study metadata={refImage} />
-            </Menu.SubMenu>
-            {clinicalTrialMenu}
-            <Menu.SubMenu key="slides" title="Slides">
-              <SlideList
+        <Routes>
+          <Route
+            path="series/:seriesInstanceUID"
+            element={
+              <ParametrizedSlideViewer
                 clients={props.clients}
-                metadata={slides}
-                selectedSeriesInstanceUID={selectedSeriesInstanceUID}
-                onSeriesSelection={handleSeriesSelection}
+                slides={slides}
+                preload={props.preload}
+                annotations={props.annotations}
+                enableAnnotationTools={props.enableAnnotationTools}
+                app={props.app}
+                user={props.user}
+                onSeriesSelection={(uid) =>
+                  handleSeriesSelection({ seriesInstanceUID: uid })
+                }
+                slideMetadataContent={slideMetadataContent}
               />
-            </Menu.SubMenu>
-          </Menu>
-        )}
-      </Layout.Sider>
-
-      <Routes>
-        <Route
-          path="/series/:seriesInstanceUID"
-          element={
-            <ParametrizedSlideViewer
-              clients={props.clients}
-              slides={slides}
-              preload={props.preload}
-              annotations={props.annotations}
-              enableAnnotationTools={props.enableAnnotationTools}
-              app={props.app}
-              user={props.user}
-            />
-          }
-        />
-      </Routes>
+            }
+          />
+          <Route
+            index
+            element={
+              <RedirectToFirstSeries
+                slides={slides}
+                pathname={location.pathname}
+              />
+            }
+          />
+        </Routes>
+      </div>
     </Layout>
   )
 }

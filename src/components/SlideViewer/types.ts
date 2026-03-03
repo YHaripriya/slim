@@ -64,6 +64,16 @@ export interface SlideViewerProps extends RouteComponentProps {
   }
   selectedPresentationStateUID?: string
   derivedDataset?: dmv.metadata.Dataset
+  /** 1-based index in worklist for Active Slide navigator (e.g. 6 of 30) */
+  slideIndex?: number
+  /** Total slides in worklist */
+  totalSlides?: number
+  /** Callback to go to previous slide in worklist */
+  onPrevSlide?: () => void
+  /** Callback to go to next slide in worklist */
+  onNextSlide?: () => void
+  /** Content for Slide Metadata panel (Patient, Study, Slides menu) */
+  slideMetadataContent?: React.ReactNode
 }
 
 /**

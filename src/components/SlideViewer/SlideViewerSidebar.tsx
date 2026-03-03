@@ -8,6 +8,8 @@ import AnnotationCategoryList from '../AnnotationCategoryList'
 import type { StyleOptions } from './types'
 
 interface SlideViewerSidebarProps {
+  /** When true, render only the menu (no Sider wrapper) for use inside left panel */
+  embedded?: boolean
   labelViewportRef: React.RefObject<HTMLDivElement>
   labelViewer?: dmv.viewer.LabelImageViewer
   openSubMenuItems: string[]
@@ -45,6 +47,7 @@ interface SlideViewerSidebarProps {
  * Sidebar component for the SlideViewer containing all menu items
  */
 const SlideViewerSidebar: React.FC<SlideViewerSidebarProps> = ({
+  embedded = false,
   labelViewportRef,
   labelViewer,
   openSubMenuItems,
@@ -66,7 +69,6 @@ const SlideViewerSidebar: React.FC<SlideViewerSidebarProps> = ({
   defaultAnnotationStyles,
 }) => {
   const handleMenuOpenChange = useCallback((): void => {
-    // Give menu item time to render before updating viewer size
     const resizeViewer = (): void => {
       if (labelViewer !== null && labelViewer !== undefined) {
         labelViewer.resize()
@@ -74,6 +76,53 @@ const SlideViewerSidebar: React.FC<SlideViewerSidebarProps> = ({
     }
     setTimeout(resizeViewer, 100)
   }, [labelViewer])
+
+  const menu = (
+    <Menu
+      mode="inline"
+      defaultOpenKeys={openSubMenuItems}
+      style={{ height: embedded ? 'auto' : '100%' }}
+      inlineIndent={14}
+      forceSubMenuRender
+      onOpenChange={handleMenuOpenChange}
+    >
+      {labelViewportRef.current !== null && (
+        <Menu.SubMenu key="label" title="Slide label">
+          <Menu.Item style={{ height: '100%' }} key="image">
+            <div style={{ height: '220px' }} ref={labelViewportRef} />
+          </Menu.Item>
+        </Menu.SubMenu>
+      )}
+      {specimenMenu}
+      {iccProfilesMenu}
+      {segmentationInterpolationMenu}
+      {parametricMapInterpolationMenu}
+      {equipmentMenu}
+      {opticalPathMenu}
+      {presentationStateMenu}
+      <Menu.SubMenu key="annotations" title="Annotations">
+        {annotationMenuItems}
+      </Menu.SubMenu>
+      {annotationGroupMenu}
+      {annotations.length === 0 ? null : (
+        <Menu.SubMenu key="annotation-categories" title="Annotation Categories">
+          <AnnotationCategoryList
+            annotations={annotations}
+            onChange={onAnnotationVisibilityChange}
+            checkedAnnotationUids={visibleRoiUIDs}
+            onStyleChange={onRoiStyleChange}
+            defaultAnnotationStyles={defaultAnnotationStyles}
+          />
+        </Menu.SubMenu>
+      )}
+      {segmentationMenu}
+      {parametricMapMenu}
+    </Menu>
+  )
+
+  if (embedded) {
+    return <div style={{ minHeight: 0 }}>{menu}</div>
+  }
 
   return (
     <Layout.Sider
@@ -86,52 +135,11 @@ const SlideViewerSidebar: React.FC<SlideViewerSidebarProps> = ({
         background: 'none',
         position: 'absolute',
         top: 0,
-        left: 0,
+        right: 0,
+        left: 'auto',
       }}
     >
-      <Menu
-        mode="inline"
-        defaultOpenKeys={openSubMenuItems}
-        style={{ height: '100%' }}
-        inlineIndent={14}
-        forceSubMenuRender
-        onOpenChange={handleMenuOpenChange}
-      >
-        {labelViewportRef.current !== null && (
-          <Menu.SubMenu key="label" title="Slide label">
-            <Menu.Item style={{ height: '100%' }} key="image">
-              <div style={{ height: '220px' }} ref={labelViewportRef} />
-            </Menu.Item>
-          </Menu.SubMenu>
-        )}
-        {specimenMenu}
-        {iccProfilesMenu}
-        {segmentationInterpolationMenu}
-        {parametricMapInterpolationMenu}
-        {equipmentMenu}
-        {opticalPathMenu}
-        {presentationStateMenu}
-        <Menu.SubMenu key="annotations" title="Annotations">
-          {annotationMenuItems}
-        </Menu.SubMenu>
-        {annotationGroupMenu}
-        {annotations.length === 0 ? null : (
-          <Menu.SubMenu
-            key="annotation-categories"
-            title="Annotation Categories"
-          >
-            <AnnotationCategoryList
-              annotations={annotations}
-              onChange={onAnnotationVisibilityChange}
-              checkedAnnotationUids={visibleRoiUIDs}
-              onStyleChange={onRoiStyleChange}
-              defaultAnnotationStyles={defaultAnnotationStyles}
-            />
-          </Menu.SubMenu>
-        )}
-        {segmentationMenu}
-        {parametricMapMenu}
-      </Menu>
+      {menu}
     </Layout.Sider>
   )
 }

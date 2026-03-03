@@ -40,6 +40,12 @@ export function createViewersForSlide(
     volumeViewer.deactivateOpticalPath(opticalPath.identifier)
   })
 
+  // Activate the first optical path so the slide image is visible by default
+  const opticalPaths = volumeViewer.getAllOpticalPaths()
+  if (opticalPaths.length > 0) {
+    volumeViewer.activateOpticalPath(opticalPaths[0].identifier)
+  }
+
   const [offset, size] = volumeViewer.boundingBox
   const boundingBox: [number[], number[]] = [offset, size]
 

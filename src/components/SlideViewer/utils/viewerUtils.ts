@@ -46,6 +46,14 @@ export const constructViewers = ({
           ? { clusteringPixelSizeThreshold }
           : undefined,
       errorInterceptor: (error: CustomError) => {
+        const msg = error?.message ?? ''
+        if (
+          typeof msg === 'string' &&
+          (msg.includes('sourceLoader is not a function') ||
+            msg.includes('Tile loader not ready yet'))
+        ) {
+          return
+        }
         NotificationMiddleware.onError(NotificationMiddlewareContext.DMV, error)
       },
     })
@@ -63,6 +71,14 @@ export const constructViewers = ({
         resizeFactor: 1,
         orientation: 'vertical',
         errorInterceptor: (error: CustomError) => {
+          const msg = error?.message ?? ''
+          if (
+            typeof msg === 'string' &&
+            (msg.includes('sourceLoader is not a function') ||
+              msg.includes('Tile loader not ready yet'))
+          ) {
+            return
+          }
           NotificationMiddleware.onError(
             NotificationMiddlewareContext.DMV,
             error,

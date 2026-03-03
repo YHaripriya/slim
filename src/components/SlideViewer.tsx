@@ -6,7 +6,6 @@ import {
   Layout,
   Menu,
   message,
-  Row,
   Select,
   Space,
   Tooltip,
@@ -57,6 +56,7 @@ import MappingList from './MappingList'
 import OpticalPathList from './OpticalPathList'
 import Report, { MeasurementReport } from './Report'
 import SegmentList from './SegmentList'
+import ActiveSlideNavigator from './SlideViewer/ActiveSlideNavigator'
 import {
   DEFAULT_ANNOTATION_COLOR_PALETTE,
   DEFAULT_ANNOTATION_OPACITY,
@@ -67,6 +67,8 @@ import {
   DEFAULT_ROI_STROKE_WIDTH,
 } from './SlideViewer/constants'
 import SlideViewerContent from './SlideViewer/SlideViewerContent'
+import SlideViewerLeftNav from './SlideViewer/SlideViewerLeftNav'
+import SlideViewerLeftPanel from './SlideViewer/SlideViewerLeftPanel'
 import SlideViewerModals from './SlideViewer/SlideViewerModals'
 import SlideViewerSidebar from './SlideViewer/SlideViewerSidebar'
 import type {
@@ -93,6 +95,7 @@ import {
   implementsTID1500,
 } from './SlideViewer/utils/viewerUtils'
 import SpecimenList from './SpecimenList'
+import { ToolbarContainer } from './styledElements/styleHelper'
 
 const SELECTION_STROKE_COLOR = [0, 153, 255]
 const SELECTION_FILL_COLOR = [255, 255, 255]
@@ -270,7 +273,11 @@ function SlideViewer(props: SlideViewerProps) {
   }, [])
 
   const { caseDetailsOpen, viewerLayersOpen } = useViewerPanels()
-  const { setToolbar: setViewerToolbar } = useViewerToolbar()
+  const {
+    setToolbar: setViewerToolbar,
+    rightContent: viewerRightContent,
+    setViewerHeaderRightContainer,
+  } = useViewerToolbar()
 
   const handlePointerMoveDebouncedRef = useRef<
     DebouncedFunc<(event: CustomEventInit) => void>
@@ -287,7 +294,9 @@ function SlideViewer(props: SlideViewerProps) {
   const _defaultAnnotationStyles = defaultAnnotationStylesRef.current
 
   const populateViewportsRef = useRef<() => void>(() => {})
+  const hasViewportRenderedRef = useRef(false)
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run when slide/series changes to re-initialize viewer
   useEffect(() => {
     const {
       location,
@@ -305,6 +314,16 @@ function SlideViewer(props: SlideViewerProps) {
     if (volumeViewportRef.current) volumeViewportRef.current.innerHTML = ''
     if (labelViewportRef.current) labelViewportRef.current.innerHTML = ''
     cleanupViewers(volumeViewerRef.current, labelViewerRef.current)
+
+    if (
+      slide == null ||
+      slide.volumeImages == null ||
+      slide.volumeImages.length === 0
+    ) {
+      volumeViewerRef.current = null
+      labelViewerRef.current = null
+      return
+    }
 
     const viewportResult = createViewersForSlide({
       clients,
@@ -339,14 +358,75 @@ function SlideViewer(props: SlideViewerProps) {
       validYCoordinateRange: [offset[1], offset[1] + size[1]],
     }))
 
-    populateViewportsRef.current()
+    hasViewportRenderedRef.current = false
+    const container = volumeViewportRef.current
+    let resizeObserver: ResizeObserver | null = null
+    let scheduledRafId: number | null = null
+    let deferredRafId: number | null = null
+
+    const doResize = (): void => {
+      volumeViewerRef.current?.resize()
+      if (labelViewportRef.current != null && labelViewerRef.current != null) {
+        labelViewerRef.current.resize()
+      }
+    }
+
+    const scheduleResize = (): void => {
+      if (scheduledRafId != null) cancelAnimationFrame(scheduledRafId)
+      scheduledRafId = requestAnimationFrame(() => {
+        scheduledRafId = null
+        doResize()
+      })
+    }
+
+    if (container != null) {
+      resizeObserver = new ResizeObserver(() => {
+        scheduleResize()
+      })
+      resizeObserver.observe(container)
+
+      // Always render after two frames so the canvas is created; resize() will run
+      // and ResizeObserver will call resize() again when container has dimensions.
+      deferredRafId = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          deferredRafId = null
+          if (!hasViewportRenderedRef.current) {
+            hasViewportRenderedRef.current = true
+            populateViewportsRef.current()
+          }
+          scheduleResize()
+        })
+      })
+
+      const fallbackTimeoutIds = [
+        setTimeout(() => {
+          if (!hasViewportRenderedRef.current) {
+            hasViewportRenderedRef.current = true
+            populateViewportsRef.current()
+          }
+          scheduleResize()
+        }, 150),
+        setTimeout(scheduleResize, 500),
+      ]
+
+      return () => {
+        fallbackTimeoutIds.forEach(clearTimeout)
+        if (deferredRafId != null) cancelAnimationFrame(deferredRafId)
+        if (scheduledRafId != null) cancelAnimationFrame(scheduledRafId)
+        resizeObserver?.disconnect()
+        cleanupViewers(volumeViewerRef.current, labelViewerRef.current)
+        volumeViewerRef.current = null
+        labelViewerRef.current = null
+      }
+    }
 
     return () => {
+      if (scheduledRafId != null) cancelAnimationFrame(scheduledRafId)
       cleanupViewers(volumeViewerRef.current, labelViewerRef.current)
       volumeViewerRef.current = null
       labelViewerRef.current = null
     }
-  }, [])
+  }, [props.seriesInstanceUID, props.slide?.seriesInstanceUIDs?.[0]])
 
   /**
    * Retrieve Presentation State instances that reference the any images of
@@ -490,12 +570,11 @@ function SlideViewer(props: SlideViewerProps) {
       // First, deactivate and hide all optical paths and reset style
       const identifier = opticalPath.identifier
       volumeViewerRef.current?.hideOpticalPath(identifier)
-      volumeViewerRef.current?.deactivateOpticalPath(identifier) ?? undefined
+      void volumeViewerRef.current?.deactivateOpticalPath(identifier)
       const style =
         volumeViewerRef.current?.getOpticalPathDefaultStyle(identifier) ??
         undefined
-      volumeViewerRef.current?.setOpticalPathStyle(identifier, style ?? {}) ??
-        undefined
+      void volumeViewerRef.current?.setOpticalPathStyle(identifier, style ?? {})
 
       presentationState.AdvancedBlendingSequence.forEach((blendingItem) => {
         /**
@@ -1273,6 +1352,41 @@ function SlideViewer(props: SlideViewerProps) {
 
     if (volumeViewportRef.current !== null) {
       volumeViewerRef.current?.render({ container: volumeViewportRef.current })
+      // Ensure first optical path is active and trigger resize after map is in DOM
+      // (loader is set in dmv's async forEach; this helps after loaders are attached)
+      const viewer = volumeViewerRef.current
+      const paths = viewer?.getAllOpticalPaths() ?? []
+      if (paths.length > 0) {
+        viewer?.activateOpticalPath(paths[0].identifier)
+      }
+      // Multiple resizes so the map gets correct size and redraws after async loader runs
+      // (dmv sets loader in async forEach; view.fit uses getSize() which may be 0 initially).
+      // Later resizes (e.g. 3000 ms) help the overview map repaint fully once tiles have loaded.
+      // Nudge the view at 500ms and 1000ms to force a repaint on first load (otherwise it only renders after zoom).
+      ;[200, 500, 1000, 2000, 3000].forEach((delay) => {
+        setTimeout(() => {
+          volumeViewerRef.current?.resize()
+          if (delay === 500 || delay === 1000) {
+            const v = volumeViewerRef.current as
+              | {
+                  getMap?: () => {
+                    getView: () => {
+                      getCenter: () => number[]
+                      setCenter: (c: number[]) => void
+                    }
+                  }
+                }
+              | null
+              | undefined
+            const map = v?.getMap?.()
+            const view = map?.getView()
+            if (view) {
+              const c = view.getCenter()
+              if (c && c.length >= 2) view.setCenter(c)
+            }
+          }
+        }, delay)
+      })
     }
     if (
       labelViewportRef.current !== null &&
@@ -2055,29 +2169,12 @@ function SlideViewer(props: SlideViewerProps) {
       onFrameLoadingEnded,
     )
     document.body.removeEventListener('keyup', onKeyUp)
-    document.body.removeEventListener('keyup', onKeyDown)
+    document.body.removeEventListener('keydown', onKeyDown)
     window.removeEventListener('resize', onWindowResize)
 
-    if (
-      volumeViewerRef.current !== null &&
-      volumeViewerRef.current !== undefined
-    ) {
-      volumeViewerRef.current.cleanup()
-    }
-    if (
-      labelViewerRef.current !== null &&
-      labelViewerRef.current !== undefined
-    ) {
-      labelViewerRef.current.cleanup()
-    }
-    /*
-     * FIXME: React appears to not clean the content of referenced
-     * HTMLDivElement objects when the page is reloaded. As a consequence,
-     * optical paths and other display items cannot be toggled or updated after
-     * a manual page reload. I have tried using ref callbacks and passing the
-     * ref objects from the parent component via the props. Both didn't work
-     * either.
-     */
+    // Viewer disposal is owned by the viewer-creation effect only. Do not call
+    // viewer.cleanup() here or the viewer is disposed when this effect re-runs
+    // (e.g. deps change), leaving no image in the slide viewer.
   }
 
   const onKeyDown = (event: KeyboardEvent): void => {
@@ -2220,7 +2317,7 @@ function SlideViewer(props: SlideViewerProps) {
       componentCleanup()
       handlePointerMoveDebouncedRef.current?.cancel()
       window.removeEventListener('beforeunload', componentCleanup)
-      cleanupViewers(volumeViewerRef.current, labelViewerRef.current)
+      // Viewer disposal is done only in the viewer-creation effect
     }
   }, [
     // biome-ignore lint/correctness/useExhaustiveDependencies: setup/cleanup/handler intentionally in deps
@@ -4094,6 +4191,7 @@ function SlideViewer(props: SlideViewerProps) {
   } => {
     const annotationTools = [
       <Btn
+        variant="toolbar"
         tooltip="Draw ROI [Alt+D]"
         icon={FaDrawPolygon}
         onClick={handleRoiDrawing}
@@ -4101,6 +4199,7 @@ function SlideViewer(props: SlideViewerProps) {
         key="draw-roi-button"
       />,
       <Btn
+        variant="toolbar"
         tooltip="Modify ROIs [Alt+M]"
         icon={FaHandPointer}
         onClick={handleRoiModification}
@@ -4108,6 +4207,7 @@ function SlideViewer(props: SlideViewerProps) {
         key="modify-roi-button"
       />,
       <Btn
+        variant="toolbar"
         tooltip="Translate ROIs [Alt+T]"
         icon={FaHandPaper}
         onClick={handleRoiTranslation}
@@ -4115,12 +4215,14 @@ function SlideViewer(props: SlideViewerProps) {
         key="translate-roi-button"
       />,
       <Btn
+        variant="toolbar"
         tooltip="Remove selected ROI [Alt+R]"
         onClick={handleRoiRemoval}
         icon={FaTrash}
         key="remove-roi-button"
       />,
       <Btn
+        variant="toolbar"
         tooltip="Show/Hide ROIs [Alt+V]"
         icon={state.areRoisHidden ? FaEye : FaEyeSlash}
         onClick={handleRoiVisibilityChange}
@@ -4128,6 +4230,7 @@ function SlideViewer(props: SlideViewerProps) {
         key="toggle-roi-visibility-button"
       />,
       <Btn
+        variant="toolbar"
         tooltip="Save ROIs [Alt+S]"
         icon={FaSave}
         onClick={handleReportGeneration}
@@ -4136,6 +4239,7 @@ function SlideViewer(props: SlideViewerProps) {
     ]
     const controlTools = [
       <Btn
+        variant="toolbar"
         tooltip="Go to [Alt+G]"
         icon={FaCrosshairs}
         onClick={handleGoTo}
@@ -4148,7 +4252,7 @@ function SlideViewer(props: SlideViewerProps) {
 
     if (props.enableAnnotationTools) {
       toolbar = (
-        <Row justify="start" gutter={8} align="middle">
+        <ToolbarContainer>
           {annotationTools.map((item) => {
             return (
               <React.Fragment key={(item as React.ReactElement).key}>
@@ -4163,7 +4267,7 @@ function SlideViewer(props: SlideViewerProps) {
               </React.Fragment>
             )
           })}
-        </Row>
+        </ToolbarContainer>
       )
       toolbarHeight = '50px'
     }
@@ -4413,9 +4517,25 @@ function SlideViewer(props: SlideViewerProps) {
   const annotationGroupMenu = getAnnotationGroupMenu(annotationGroups)
   const { toolbar, toolbarHeight } = getToolbar()
   useEffect(() => {
-    setViewerToolbar(toolbar)
+    setViewerToolbar(null)
     return () => setViewerToolbar(null)
-  }, [toolbar, setViewerToolbar])
+  }, [setViewerToolbar])
+  console.log('props to check:', props)
+
+  const activeSlideNavigator =
+    props.slideIndex != null &&
+    props.totalSlides != null &&
+    props.slideIndex >= 0 &&
+    props.totalSlides > 0 ? (
+      <ActiveSlideNavigator
+        currentIndex={props.slideIndex}
+        totalSlides={props.totalSlides}
+        dicomId={props.seriesInstanceUID}
+        onPrev={props.onPrevSlide}
+        onNext={props.onNextSlide}
+        slideId={props?.slide?.containerIdentifier}
+      />
+    ) : null
   const cursor = getCursor()
   const selectedRoiInformation = getSelectedRoiInformation()
   const iccProfilesMenu = getICCProfilesMenu()
@@ -4434,77 +4554,111 @@ function SlideViewer(props: SlideViewerProps) {
 
   annotations?.forEach?.(formatAnnotation)
 
-  return (
-    <Layout style={{ height: '100%', position: 'relative' }} hasSider>
-      <SlideViewerContent
-        toolbar={null}
-        toolbarHeight={toolbarHeight}
-        cursor={cursor}
-        volumeViewportRef={volumeViewportRef}
-        caseDetailsOpen={caseDetailsOpen}
-        viewerLayersOpen={viewerLayersOpen}
-      >
-        <SlideViewerModals
-          isAnnotationModalVisible={state.isAnnotationModalVisible}
-          onAnnotationConfigurationCompletion={
-            handleAnnotationConfigurationCompletion
-          }
-          onAnnotationConfigurationCancellation={
-            handleAnnotationConfigurationCancellation
-          }
-          isAnnotationOkDisabled={
-            !(
-              state.selectedFinding !== undefined &&
-              state.selectedGeometryType !== undefined
-            )
-          }
-          annotationConfigurations={annotationConfigurations}
-          isSelectedRoiModalVisible={state.isSelectedRoiModalVisible}
-          onRoiSelectionCancellation={handleRoiSelectionCancellation}
-          selectedRoiInformation={selectedRoiInformation}
-          isGoToModalVisible={state.isGoToModalVisible}
-          onSlidePositionSelection={handleSlidePositionSelection}
-          onSlidePositionSelectionCancellation={
-            handleSlidePositionSelectionCancellation
-          }
-          validXCoordinateRange={state.validXCoordinateRange}
-          validYCoordinateRange={state.validYCoordinateRange}
-          isSelectedXCoordinateValid={state.isSelectedXCoordinateValid}
-          isSelectedYCoordinateValid={state.isSelectedYCoordinateValid}
-          isSelectedMagnificationValid={state.isSelectedMagnificationValid}
-          onXCoordinateSelection={handleXCoordinateSelection}
-          onYCoordinateSelection={handleYCoordinateSelection}
-          onMagnificationSelection={handleMagnificationSelection}
-          isReportModalVisible={state.isReportModalVisible}
-          onReportVerification={handleReportVerification}
-          onReportCancellation={handleReportCancellation}
-          report={report}
-        />
-      </SlideViewerContent>
+  const overlayContent = (
+    <SlideViewerSidebar
+      embedded
+      labelViewportRef={labelViewportRef}
+      labelViewer={labelViewerRef.current ?? undefined}
+      openSubMenuItems={openSubMenuItems}
+      specimenMenu={specimenMenu}
+      iccProfilesMenu={iccProfilesMenu}
+      segmentationInterpolationMenu={segmentationInterpolationMenu}
+      parametricMapInterpolationMenu={parametricMapInterpolationMenu}
+      equipmentMenu={equipmentMenu}
+      opticalPathMenu={opticalPathMenu}
+      presentationStateMenu={presentationStateMenu}
+      annotationMenuItems={annotationMenuItems}
+      annotationGroupMenu={annotationGroupMenu}
+      segmentationMenu={segmentationMenu}
+      parametricMapMenu={parametricMapMenu}
+      annotations={annotations}
+      visibleRoiUIDs={state.visibleRoiUIDs}
+      onAnnotationVisibilityChange={handleAnnotationVisibilityChange}
+      onRoiStyleChange={handleRoiStyleChange}
+      defaultAnnotationStyles={defaultAnnotationStylesRef.current ?? {}}
+    />
+  )
 
-      {viewerLayersOpen && (
-        <SlideViewerSidebar
-          labelViewportRef={labelViewportRef}
-          labelViewer={labelViewerRef.current ?? undefined}
-          openSubMenuItems={openSubMenuItems}
-          specimenMenu={specimenMenu}
-          iccProfilesMenu={iccProfilesMenu}
-          segmentationInterpolationMenu={segmentationInterpolationMenu}
-          parametricMapInterpolationMenu={parametricMapInterpolationMenu}
-          equipmentMenu={equipmentMenu}
-          opticalPathMenu={opticalPathMenu}
-          presentationStateMenu={presentationStateMenu}
-          annotationMenuItems={annotationMenuItems}
-          annotationGroupMenu={annotationGroupMenu}
-          segmentationMenu={segmentationMenu}
-          parametricMapMenu={parametricMapMenu}
-          annotations={annotations}
-          visibleRoiUIDs={state.visibleRoiUIDs}
-          onAnnotationVisibilityChange={handleAnnotationVisibilityChange}
-          onRoiStyleChange={handleRoiStyleChange}
-          defaultAnnotationStyles={defaultAnnotationStylesRef.current}
+  return (
+    <Layout
+      style={{
+        flex: 1,
+        minHeight: 0,
+        minWidth: 0,
+        height: '100%',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'row',
+      }}
+      hasSider
+    >
+      <SlideViewerLeftNav />
+      <div
+        style={{
+          position: 'relative',
+          flex: 1,
+          minWidth: 0,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <SlideViewerLeftPanel
+          caseDetailsOpen={caseDetailsOpen}
+          viewerLayersOpen={viewerLayersOpen}
+          slideMetadataContent={props.slideMetadataContent}
+          overlayContent={overlayContent}
         />
-      )}
+        <SlideViewerContent
+          toolbar={toolbar}
+          toolbarHeight={toolbarHeight}
+          cursor={cursor}
+          volumeViewportRef={volumeViewportRef}
+          caseDetailsOpen={caseDetailsOpen}
+          viewerLayersOpen={viewerLayersOpen}
+          activeSlideNavigator={activeSlideNavigator}
+          rightHeaderContent={viewerRightContent}
+          setViewerHeaderRightContainer={setViewerHeaderRightContainer}
+        >
+          <SlideViewerModals
+            isAnnotationModalVisible={state.isAnnotationModalVisible}
+            onAnnotationConfigurationCompletion={
+              handleAnnotationConfigurationCompletion
+            }
+            onAnnotationConfigurationCancellation={
+              handleAnnotationConfigurationCancellation
+            }
+            isAnnotationOkDisabled={
+              !(
+                state.selectedFinding !== undefined &&
+                state.selectedGeometryType !== undefined
+              )
+            }
+            annotationConfigurations={annotationConfigurations}
+            isSelectedRoiModalVisible={state.isSelectedRoiModalVisible}
+            onRoiSelectionCancellation={handleRoiSelectionCancellation}
+            selectedRoiInformation={selectedRoiInformation}
+            isGoToModalVisible={state.isGoToModalVisible}
+            onSlidePositionSelection={handleSlidePositionSelection}
+            onSlidePositionSelectionCancellation={
+              handleSlidePositionSelectionCancellation
+            }
+            validXCoordinateRange={state.validXCoordinateRange}
+            validYCoordinateRange={state.validYCoordinateRange}
+            isSelectedXCoordinateValid={state.isSelectedXCoordinateValid}
+            isSelectedYCoordinateValid={state.isSelectedYCoordinateValid}
+            isSelectedMagnificationValid={state.isSelectedMagnificationValid}
+            onXCoordinateSelection={handleXCoordinateSelection}
+            onYCoordinateSelection={handleYCoordinateSelection}
+            onMagnificationSelection={handleMagnificationSelection}
+            isReportModalVisible={state.isReportModalVisible}
+            onReportVerification={handleReportVerification}
+            onReportCancellation={handleReportCancellation}
+            report={report}
+          />
+        </SlideViewerContent>
+      </div>
 
       {state.isHoveredRoiTooltipVisible &&
       state.hoveredRoiAttributes.length > 0 ? (

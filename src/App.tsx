@@ -18,7 +18,6 @@ import OidcManager from './auth/OidcManager'
 import CaseViewer from './components/CaseViewer'
 import Header, { HeaderWithToolbar } from './components/Header'
 import InfoPage from './components/InfoPage'
-import MemoryFooter from './components/MemoryFooter'
 import Worklist from './components/Worklist'
 import { ValidationProvider } from './contexts/ValidationContext'
 import {
@@ -472,7 +471,7 @@ class App extends React.Component<AppProps, AppState> {
     const enableWorklist = !(this.props.config.disableWorklist ?? false)
     const enableServerSelection =
       this.props.config.enableServerSelection ?? false
-    const enableMemoryMonitoring =
+    const _enableMemoryMonitoring =
       this.props.config.enableMemoryMonitoring ?? true
 
     let worklist: React.ReactNode
@@ -501,8 +500,13 @@ class App extends React.Component<AppProps, AppState> {
       isLogoutPossible = false
     }
 
-    const layoutStyle = { height: '100vh' }
-    const layoutContentStyle = { height: '100%' }
+    const layoutStyle = {
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column' as const,
+      minHeight: 0,
+    }
+    const layoutContentStyle = { flex: 1, minHeight: 0, height: '100%' }
 
     if (this.state.redirectTo !== undefined) {
       return (
@@ -554,9 +558,9 @@ class App extends React.Component<AppProps, AppState> {
                   <Layout.Content style={layoutContentStyle}>
                     {worklist}
                   </Layout.Content>
-                  {enableMemoryMonitoring && (
+                  {/* {enableMemoryMonitoring && (
                     <MemoryFooter enabled={enableMemoryMonitoring} />
-                  )}
+                  )} */}
                 </Layout>
               }
             />
@@ -585,9 +589,9 @@ class App extends React.Component<AppProps, AppState> {
                           app={appInfo}
                         />
                       </Layout.Content>
-                      {enableMemoryMonitoring && (
+                      {/* {enableMemoryMonitoring && (
                         <MemoryFooter enabled={enableMemoryMonitoring} />
-                      )}
+                      )} */}
                     </Layout>
                   </ViewerToolbarProvider>
                 </ViewerPanelsProvider>
@@ -618,9 +622,9 @@ class App extends React.Component<AppProps, AppState> {
                           app={appInfo}
                         />
                       </Layout.Content>
-                      {enableMemoryMonitoring && (
+                      {/* {enableMemoryMonitoring && (
                         <MemoryFooter enabled={enableMemoryMonitoring} />
-                      )}
+                      )} */}
                     </Layout>
                   </ViewerToolbarProvider>
                 </ViewerPanelsProvider>
@@ -643,9 +647,9 @@ class App extends React.Component<AppProps, AppState> {
                   <Layout.Content style={layoutContentStyle}>
                     Logged out
                   </Layout.Content>
-                  {enableMemoryMonitoring && (
+                  {/* {enableMemoryMonitoring && (
                     <MemoryFooter enabled={enableMemoryMonitoring} />
-                  )}
+                  )} */}
                 </Layout>
               }
             />
