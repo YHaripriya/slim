@@ -670,16 +670,18 @@ class Header extends React.Component<HeaderProps, HeaderState> {
       ) : null
 
     const viewerHeaderRightContainer = this.props.viewerHeaderRightContainer
-    const portalContent =
+    // Worklist is in the left nav as Slide Gallery; only DICOM tag browser in viewer header right
+    if (
       this.props.viewerToolbar != null &&
-      viewerHeaderRightContainer != null &&
+      viewerHeaderRightContainer != null
+    ) {
       ReactDOM.createPortal(
         <Space direction="horizontal" size="middle">
-          {worklistButton}
           {dicomTagBrowserButton}
         </Space>,
         viewerHeaderRightContainer,
       )
+    }
 
     return (
       <>
@@ -717,7 +719,6 @@ class Header extends React.Component<HeaderProps, HeaderState> {
                 {user}
               </Space>
             </Col>
-            <Col>{portalContent}</Col>
           </Row>
         </Layout.Header>
 

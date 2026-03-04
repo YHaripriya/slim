@@ -14,10 +14,14 @@ export interface SlideViewerLeftPanelProps {
   caseDetailsOpen: boolean
   /** Whether Overlay Masks panel is open */
   viewerLayersOpen: boolean
+  /** Whether Worklist / Slide Gallery panel is open */
+  worklistPanelOpen?: boolean
   /** Content to show when Slide Metadata is open (e.g. Patient, Study, Slides menu) */
   slideMetadataContent?: React.ReactNode
   /** Content to show when Overlay Masks is open (e.g. layers/specimens menu) */
   overlayContent?: React.ReactNode
+  /** Content to show when Worklist panel is open (Slide Gallery) */
+  worklistContent?: React.ReactNode
   /** Panel width when open */
   width?: number
 }
@@ -29,12 +33,14 @@ export interface SlideViewerLeftPanelProps {
 const SlideViewerLeftPanel: React.FC<SlideViewerLeftPanelProps> = ({
   caseDetailsOpen,
   viewerLayersOpen,
+  worklistPanelOpen = false,
   slideMetadataContent,
   overlayContent,
+  worklistContent,
   width = 300,
 }) => {
-  const isOpen = caseDetailsOpen || viewerLayersOpen
-  const { setViewerLayersOpen, setCaseDetailsOpen } =
+  const isOpen = caseDetailsOpen || viewerLayersOpen || worklistPanelOpen
+  const { setViewerLayersOpen, setCaseDetailsOpen, setWorklistPanelOpen } =
     useContext(ViewerPanelsContext)
 
   if (!isOpen) {
@@ -44,6 +50,17 @@ const SlideViewerLeftPanel: React.FC<SlideViewerLeftPanelProps> = ({
   return (
     <LeftPanelContainer $open $width={width}>
       <LeftPanelContent>
+        {worklistPanelOpen && worklistContent != null && (
+          <>
+            <PanelSectionTitle>
+              Slide Gallery
+              <CloseIconWrp onClick={() => setWorklistPanelOpen(false)}>
+                <CloseOutlined />
+              </CloseIconWrp>
+            </PanelSectionTitle>
+            {worklistContent}
+          </>
+        )}
         {caseDetailsOpen && slideMetadataContent != null && (
           <>
             <PanelSectionTitle>
@@ -58,7 +75,7 @@ const SlideViewerLeftPanel: React.FC<SlideViewerLeftPanelProps> = ({
         {viewerLayersOpen && overlayContent != null && (
           <>
             <PanelSectionTitle>
-              Overlay Masks{' '}
+              Overlay Masks
               <CloseIconWrp onClick={() => setViewerLayersOpen(false)}>
                 <CloseOutlined />
               </CloseIconWrp>

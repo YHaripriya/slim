@@ -15,7 +15,7 @@ import type AppConfig from './AppConfig'
 import type { ErrorMessageSettings, ServerSettings } from './AppConfig'
 import type { AuthManager, User } from './auth'
 import OidcManager from './auth/OidcManager'
-import CaseViewer from './components/CaseViewer'
+import CaseViewer, { RedirectToFirstStudy } from './components/CaseViewer'
 import Header, { HeaderWithToolbar } from './components/Header'
 import InfoPage from './components/InfoPage'
 import Worklist from './components/Worklist'
@@ -562,6 +562,31 @@ class App extends React.Component<AppProps, AppState> {
                     <MemoryFooter enabled={enableMemoryMonitoring} />
                   )} */}
                 </Layout>
+              }
+            />
+            <Route
+              path="/studies"
+              element={
+                <ViewerPanelsProvider>
+                  <ViewerToolbarProvider>
+                    <Layout style={layoutStyle}>
+                      <HeaderWithToolbar
+                        app={appInfo}
+                        user={this.state.user}
+                        showWorklistButton={enableWorklist}
+                        onServerSelection={this.handleServerSelection}
+                        onUserLogout={isLogoutPossible ? onLogout : undefined}
+                        showServerSelectionButton={enableServerSelection}
+                        clients={this.state.clients}
+                        defaultClients={this.state.defaultClients}
+                        viewerPanelToggles={<ViewerPanelToggles />}
+                      />
+                      <Layout.Content style={layoutContentStyle}>
+                        <RedirectToFirstStudy clients={this.state.clients} />
+                      </Layout.Content>
+                    </Layout>
+                  </ViewerToolbarProvider>
+                </ViewerPanelsProvider>
               }
             />
             <Route

@@ -22,17 +22,39 @@ export const fetchImageMetadata = async ({
   onSuccess,
   onError,
 }: FetchImageMetadataParams): Promise<void> => {
+  const reportError = (err: unknown): void => {
+    const raw = err as Error
+    console.error(raw)
+    const message =
+      raw?.message === 'request failed' ||
+      raw?.message?.toLowerCase().includes('fetch') ||
+      raw?.message?.toLowerCase().includes('network')
+        ? 'Request failed. The server may be unreachable or the request was rejected.'
+        : 'Image metadata could not be retrieved or decoded.'
+    const errorToReport = new CustomError(
+      errorTypes.ENCODINGANDDECODING,
+      message,
+    )
+    onError(errorToReport)
+    NotificationMiddleware.onError(
+      NotificationMiddlewareContext.SLIM,
+      errorToReport,
+    )
+  }
+
   try {
     const images: dmv.metadata.VLWholeSlideMicroscopyImage[][] = []
     console.info(`search for series of study "${studyInstanceUID}"...`)
 
     const client = clients[StorageClasses.VL_WHOLE_SLIDE_MICROSCOPY_IMAGE]
-    const matchedSeries = await client.searchForSeries({
-      queryParams: {
-        Modality: 'SM',
-        StudyInstanceUID: studyInstanceUID,
-      },
-    })
+    const matchedSeries = await Promise.resolve(
+      client.searchForSeries({
+        queryParams: {
+          Modality: 'SM',
+          StudyInstanceUID: studyInstanceUID,
+        },
+      }),
+    )
 
     await Promise.all(
       matchedSeries.map(async (s) => {
@@ -67,15 +89,6 @@ export const fetchImageMetadata = async ({
     const newSlides = createSlides(images)
     onSuccess(newSlides)
   } catch (err) {
-    console.error(err)
-    const customError = new CustomError(
-      errorTypes.ENCODINGANDDECODING,
-      'Image metadata could not be retrieved or decoded.',
-    )
-    onError(customError)
-    NotificationMiddleware.onError(
-      NotificationMiddlewareContext.SLIM,
-      customError,
-    )
+    reportError(err)
   }
 }

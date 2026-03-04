@@ -74,6 +74,8 @@ export interface SlideViewerProps extends RouteComponentProps {
   onNextSlide?: () => void
   /** Content for Slide Metadata panel (Patient, Study, Slides menu) */
   slideMetadataContent?: React.ReactNode
+  /** Content for Worklist / Slide Gallery panel (slide list with selection) */
+  worklistContent?: React.ReactNode
 }
 
 /**

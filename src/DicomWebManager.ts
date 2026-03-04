@@ -15,7 +15,10 @@ import NotificationMiddleware, {
 } from './services/NotificationMiddleware'
 import { CustomError, errorTypes } from './utils/CustomError'
 import { joinUrl } from './utils/url'
-import getXHRRetryHook from './utils/xhrRetryHook'
+import {
+  getXHRRequestFailedCatchHook,
+  getXHRRetryHook,
+} from './utils/xhrRetryHook'
 
 const { naturalizeDataset } = dcmjs.data.DicomMetaDictionary
 
@@ -114,9 +117,12 @@ export default class DicomWebManager implements dwc.api.DICOMwebClient {
         }
       }
 
-      if (serverSettings.retry !== undefined) {
-        clientSettings.requestHooks = [getXHRRetryHook(serverSettings.retry)]
-      }
+      clientSettings.requestHooks = [
+        getXHRRequestFailedCatchHook(),
+        ...(serverSettings.retry !== undefined
+          ? [getXHRRetryHook(serverSettings.retry)]
+          : []),
+      ]
 
       clientSettings.errorInterceptor = (
         error: dwc.api.DICOMwebClientError,

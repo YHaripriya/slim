@@ -7,6 +7,7 @@ import './index.css'
 import packageInfo from '../package.json'
 import type AppConfig from './AppConfig'
 import CustomErrorBoundary from './components/CustomErrorBoundary'
+import { installGlobalRequestFailedHandler } from './utils/requestErrorHandler'
 
 declare global {
   interface Window {
@@ -18,6 +19,9 @@ const config: AppConfig = window.config
 if (config === undefined) {
   throw Error('No application configuration was provided.')
 }
+
+// Prevent "request failed" from dicomweb-client ever showing as uncaught runtime error
+installGlobalRequestFailedHandler()
 
 type AppProps = {
   config: AppConfig

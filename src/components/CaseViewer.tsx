@@ -1,6 +1,8 @@
 import { Layout, Menu, Spin } from 'antd'
 // skipcq: JS-C1003
 import * as dcmjs from 'dcmjs'
+// skipcq: JS-C1003
+import type * as dmv from 'dicom-microscopy-viewer'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import {
@@ -8,6 +10,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useNavigate,
   useParams,
 } from 'react-router-dom'
 
@@ -18,11 +21,14 @@ import type DicomWebManager from '../DicomWebManager'
 import type { Slide } from '../data/slides'
 import { StorageClasses } from '../data/uids'
 import { useSlides } from '../hooks/useSlides'
+import { useWorklistStudies } from '../hooks/useWorklistStudies'
+import { getAndClearLastRequestFailedError } from '../utils/requestErrorHandler'
 import { type RouteComponentProps, withRouter } from '../utils/router'
 import ClinicalTrial from './ClinicalTrial'
 import Patient from './Patient'
 import SlideList from './SlideList'
 import SlideViewer from './SlideViewer'
+import SlideGalleryPanel from './SlideViewer/SlideGalleryPanel'
 import Study from './Study'
 
 const { naturalizeDataset } = dcmjs.data.DicomMetaDictionary
@@ -56,6 +62,56 @@ const findSeriesSlide = (
   slides.find((slide: Slide) =>
     slide.seriesInstanceUIDs.some((uid: string) => uid === seriesInstanceUID),
   )
+
+/**
+ * When at /studies (no study UID), load worklist and redirect to first study
+ * so the first study and its first slide are selected by default.
+ */
+export function RedirectToFirstStudy({
+  clients,
+}: {
+  clients: { [key: string]: DicomWebManager }
+}): JSX.Element {
+  const { studies, isLoading } = useWorklistStudies({
+    clients,
+    enabled: true,
+    limit: 1,
+  })
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: 200,
+        }}
+      >
+        <Spin size="large" tip="Loading worklist…" />
+      </div>
+    )
+  }
+  const firstStudyUid = studies[0]?.StudyInstanceUID
+  if (firstStudyUid != null) {
+    return <Navigate to={`/studies/${firstStudyUid}`} replace />
+  }
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        textAlign: 'center',
+        color: 'rgba(0,0,0,0.65)',
+      }}
+    >
+      No studies in worklist.
+    </div>
+  )
+}
 
 /** Loading placeholder when slides are not yet available (avoids redirect loop). */
 function ViewerLoadingContent(): JSX.Element {
@@ -104,6 +160,10 @@ function ParametrizedSlideViewer({
   annotations,
   onSeriesSelection,
   slideMetadataContent,
+  worklistStudies: worklistStudiesProp,
+  worklistLoading: worklistLoadingProp,
+  worklistLimit: worklistLimitProp,
+  onLoadMoreWorklist: onLoadMoreWorklistProp,
 }: {
   clients: { [key: string]: DicomWebManager }
   slides: Slide[]
@@ -119,12 +179,21 @@ function ParametrizedSlideViewer({
   annotations: AnnotationSettings[]
   onSeriesSelection?: (seriesInstanceUID: string) => void
   slideMetadataContent?: ReactNode
+  worklistStudies?: dmv.metadata.Study[]
+  worklistLoading?: boolean
+  worklistLimit?: number
+  onLoadMoreWorklist?: () => void
 }): JSX.Element | null {
   const { studyInstanceUID = '', seriesInstanceUID = '' } = useParams<{
     studyInstanceUID: string
     seriesInstanceUID: string
   }>()
   const location = useLocation()
+  const navigate = useNavigate()
+  const worklistStudies = worklistStudiesProp ?? []
+  const worklistLoading = worklistLoadingProp ?? false
+  const worklistLimit = worklistLimitProp ?? 200
+  const onLoadMoreWorklist = onLoadMoreWorklistProp
 
   const [selectedSlide, setSelectedSlide] = useState(
     findSeriesSlide(slides, seriesInstanceUID),
@@ -244,6 +313,20 @@ function ParametrizedSlideViewer({
         }
       : undefined
 
+  const worklistContent = (
+    <SlideGalleryPanel
+      slides={slides}
+      selectedSlide={selectedSlide ?? null}
+      onSlideSelect={onSeriesSelection ?? (() => {})}
+      worklistStudies={worklistStudies}
+      worklistLoading={worklistLoading}
+      currentStudyInstanceUID={studyInstanceUID}
+      onStudySelect={(uid) => navigate(`/studies/${uid}`)}
+      worklistLimit={worklistLimit}
+      onLoadMoreWorklist={onLoadMoreWorklist}
+    />
+  )
+
   let viewer: ReactNode = null
   if (selectedSlide != null && selectedSlide !== undefined) {
     viewer = (
@@ -264,6 +347,7 @@ function ParametrizedSlideViewer({
         onPrevSlide={onPrevSlide}
         onNextSlide={onNextSlide}
         slideMetadataContent={slideMetadataContent}
+        worklistContent={worklistContent}
       />
     )
   }
@@ -302,9 +386,69 @@ interface ViewerProps extends RouteComponentProps {
 
 function Viewer(props: ViewerProps): JSX.Element | null {
   const { clients, studyInstanceUID, location, navigate } = props
-  const { slides } = useSlides({ clients, studyInstanceUID })
+  const [worklistLimit, setWorklistLimit] = useState(200)
+  const [requestFailedError, setRequestFailedError] = useState<Error | null>(
+    null,
+  )
+  const { studies: worklistStudies, isLoading: worklistLoading } =
+    useWorklistStudies({ clients, enabled: true, limit: worklistLimit })
+  const { slides, error: slidesError } = useSlides({
+    clients,
+    studyInstanceUID,
+    enabled: !worklistLoading,
+  })
   const panels = useViewerPanels()
   const caseDetailsOpen = panels.isProvided ? panels.caseDetailsOpen : true
+
+  // Show any "request failed" that was caught globally (e.g. before this mounted)
+  useEffect(() => {
+    const stored = getAndClearLastRequestFailedError()
+    if (stored != null) setRequestFailedError(stored)
+  }, [])
+
+  // Listen for "request failed" from global handler (index) or XHR hook
+  useEffect(() => {
+    const onRequestFailed = (e: Event): void => {
+      const detail = (e as CustomEvent<Error>).detail
+      setRequestFailedError(
+        detail instanceof Error ? detail : new Error('Request failed'),
+      )
+    }
+    window.addEventListener('slim-request-failed', onRequestFailed)
+    return () =>
+      window.removeEventListener('slim-request-failed', onRequestFailed)
+  }, [])
+
+  // Clear request-failed state when switching study so user can retry
+  // biome-ignore lint/correctness/useExhaustiveDependencies: clear error when study changes
+  useEffect(() => {
+    setRequestFailedError(null)
+  }, [studyInstanceUID])
+
+  const displayError = slidesError ?? requestFailedError
+  if (displayError != null) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+          textAlign: 'center',
+        }}
+      >
+        <p style={{ color: 'rgba(0,0,0,0.65)', marginBottom: 8 }}>
+          Failed to load study. The server may be unreachable or the request was
+          rejected.
+        </p>
+        <p style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+          {displayError.message}
+        </p>
+      </div>
+    )
+  }
 
   const handleSeriesSelection = ({
     seriesInstanceUID,
@@ -477,6 +621,12 @@ function Viewer(props: ViewerProps): JSX.Element | null {
                   handleSeriesSelection({ seriesInstanceUID: uid })
                 }
                 slideMetadataContent={slideMetadataContent}
+                worklistStudies={worklistStudies}
+                worklistLoading={worklistLoading}
+                worklistLimit={worklistLimit}
+                onLoadMoreWorklist={() =>
+                  setWorklistLimit((prev) => prev + 100)
+                }
               />
             }
           />

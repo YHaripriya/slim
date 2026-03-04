@@ -11,6 +11,48 @@ type RequestHook = (
 ) => XMLHttpRequest
 
 /**
+ * Request hook that catches "request failed" thrown in XHR onreadystatechange
+ * and dispatches 'slim-request-failed' so the app can show in-app error UI
+ * instead of the uncaught runtime error overlay. Always register this hook.
+ */
+export const getXHRRequestFailedCatchHook =
+  (): RequestHook =>
+  (request: XMLHttpRequest): XMLHttpRequest => {
+    const originalSend = request.send.bind(request)
+    request.send = function send(
+      ...args: Parameters<XMLHttpRequest['send']>
+    ): void {
+      const originalOnReadyStateChange = request.onreadystatechange
+      request.onreadystatechange = function onReadyStateChange(
+        ev: Event,
+      ): void {
+        if (originalOnReadyStateChange != null) {
+          try {
+            originalOnReadyStateChange.call(request, ev)
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            if (
+              message === 'request failed' ||
+              message?.toLowerCase().includes('request failed')
+            ) {
+              console.error(err)
+              window.dispatchEvent(
+                new CustomEvent('slim-request-failed', {
+                  detail: err instanceof Error ? err : new Error(message),
+                }),
+              )
+              return
+            }
+            throw err
+          }
+        }
+      }
+      originalSend(...args)
+    }
+    return request
+  }
+
+/**
  * Returns a configured retry request hook function
  * that can be used to add retry functionality to XHR request.
  *
@@ -89,12 +131,30 @@ export const getXHRRetryHook = (
       operation.attempt(function operationAttempt(currentAttempt) {
         const originalOnReadyStateChange = request.onreadystatechange
 
-        /** Overriding/extending XHR function */
+        /** Overriding/extending XHR function. Wrap client handler to catch "request failed"
+         * so it doesn't surface as uncaught and trigger the runtime error overlay. */
         request.onreadystatechange = function onReadyStateChange(
           ev: Event,
         ): void {
           if (originalOnReadyStateChange != null) {
-            originalOnReadyStateChange.call(request, ev)
+            try {
+              originalOnReadyStateChange.call(request, ev)
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err)
+              if (
+                message === 'request failed' ||
+                message?.toLowerCase().includes('request failed')
+              ) {
+                console.error(err)
+                window.dispatchEvent(
+                  new CustomEvent('slim-request-failed', {
+                    detail: err instanceof Error ? err : new Error(message),
+                  }),
+                )
+                return
+              }
+              throw err
+            }
           }
 
           if (retryOptions.retryableStatusCodes.includes(request.status)) {

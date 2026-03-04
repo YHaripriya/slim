@@ -272,7 +272,8 @@ function SlideViewer(props: SlideViewerProps) {
     setState((prev) => ({ ...prev, ...update }))
   }, [])
 
-  const { caseDetailsOpen, viewerLayersOpen } = useViewerPanels()
+  const { caseDetailsOpen, viewerLayersOpen, worklistPanelOpen } =
+    useViewerPanels()
   const {
     setToolbar: setViewerToolbar,
     rightContent: viewerRightContent,
@@ -4607,8 +4608,10 @@ function SlideViewer(props: SlideViewerProps) {
         <SlideViewerLeftPanel
           caseDetailsOpen={caseDetailsOpen}
           viewerLayersOpen={viewerLayersOpen}
+          worklistPanelOpen={worklistPanelOpen}
           slideMetadataContent={props.slideMetadataContent}
           overlayContent={overlayContent}
+          worklistContent={props.worklistContent}
         />
         <SlideViewerContent
           toolbar={toolbar}

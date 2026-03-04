@@ -6,19 +6,23 @@ import { StyledButton } from '../components/styledElements/styleHelper'
 export interface ViewerPanelsState {
   caseDetailsOpen: boolean
   viewerLayersOpen: boolean
+  worklistPanelOpen: boolean
 }
 
 export interface ViewerPanelsContextValue extends ViewerPanelsState {
   isProvided: boolean
   setCaseDetailsOpen: (open: boolean | ((prev: boolean) => boolean)) => void
   setViewerLayersOpen: (open: boolean | ((prev: boolean) => boolean)) => void
+  setWorklistPanelOpen: (open: boolean | ((prev: boolean) => boolean)) => void
   toggleCaseDetails: () => void
   toggleViewerLayers: () => void
+  toggleWorklistPanel: () => void
 }
 
 const defaultState: ViewerPanelsState = {
   caseDetailsOpen: true,
   viewerLayersOpen: true,
+  worklistPanelOpen: false,
 }
 
 const defaultContextValue: ViewerPanelsContextValue = {
@@ -26,8 +30,10 @@ const defaultContextValue: ViewerPanelsContextValue = {
   isProvided: false,
   setCaseDetailsOpen: () => {},
   setViewerLayersOpen: () => {},
+  setWorklistPanelOpen: () => {},
   toggleCaseDetails: () => {},
   toggleViewerLayers: () => {},
+  toggleWorklistPanel: () => {},
 }
 
 const ViewerPanelsContext =
@@ -40,25 +46,37 @@ export function ViewerPanelsProvider({
 }): React.ReactElement {
   const [caseDetailsOpen, setCaseDetailsOpen] = useState(false)
   const [viewerLayersOpen, setViewerLayersOpen] = useState(false)
+  const [worklistPanelOpen, setWorklistPanelOpen] = useState(false)
 
   const toggleCaseDetails = useCallback(() => {
     setViewerLayersOpen(false)
+    setWorklistPanelOpen(false)
     setCaseDetailsOpen((prev) => !prev)
   }, [])
 
   const toggleViewerLayers = useCallback(() => {
     setCaseDetailsOpen(false)
+    setWorklistPanelOpen(false)
     setViewerLayersOpen((prev) => !prev)
+  }, [])
+
+  const toggleWorklistPanel = useCallback(() => {
+    setCaseDetailsOpen(false)
+    setViewerLayersOpen(false)
+    setWorklistPanelOpen((prev) => !prev)
   }, [])
 
   const value: ViewerPanelsContextValue = {
     caseDetailsOpen,
     viewerLayersOpen,
+    worklistPanelOpen,
     isProvided: true,
     setCaseDetailsOpen,
     setViewerLayersOpen,
+    setWorklistPanelOpen,
     toggleCaseDetails,
     toggleViewerLayers,
+    toggleWorklistPanel,
   }
 
   return (

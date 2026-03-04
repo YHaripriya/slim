@@ -2,6 +2,7 @@ import {
   AppstoreOutlined,
   FileTextOutlined,
   ToolOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons'
 import { Tooltip } from 'antd'
 
@@ -9,7 +10,7 @@ import { useViewerPanels } from '../../contexts/ViewerPanelsContext'
 import { LeftNavButton, LeftNavContainer } from '../styledElements/styleHelper'
 
 /**
- * Vertical left nav for the slide viewer: Slide Metadata, Overlay Masks, QC.
+ * Vertical left nav for the slide viewer: Worklist (Slide Gallery), Slide Metadata, Overlay Masks, QC.
  * Styled with design system from styleHelper; uses ViewerPanelsContext toggles.
  */
 const SlideViewerLeftNav: React.FC = () => {
@@ -18,6 +19,19 @@ const SlideViewerLeftNav: React.FC = () => {
 
   return (
     <LeftNavContainer>
+      <Tooltip
+        title={
+          panels.worklistPanelOpen ? 'Hide Slide Gallery' : 'Show Slide Gallery'
+        }
+        placement="right"
+      >
+        <LeftNavButton
+          type="text"
+          $selected={panels.worklistPanelOpen}
+          icon={<UnorderedListOutlined style={{ fontSize: 18 }} />}
+          onClick={panels.toggleWorklistPanel}
+        />
+      </Tooltip>
       <Tooltip
         title={
           panels.caseDetailsOpen ? 'Hide Slide Metadata' : 'Show Slide Metadata'

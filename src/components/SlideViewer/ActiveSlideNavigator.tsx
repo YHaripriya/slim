@@ -3,10 +3,11 @@ import { Button, Typography } from 'antd'
 import type React from 'react'
 
 const panelStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  background: 'rgba(255,255,255,0.95)',
-  borderRadius: 6,
-  boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+  padding: '10px 14px',
+  background: 'rgba(255,255,255,0.97)',
+  borderRadius: 10,
+  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+  border: '1px solid rgba(0,0,0,0.06)',
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
@@ -60,7 +61,12 @@ const ActiveSlideNavigator: React.FC<ActiveSlideNavigatorProps> = ({
           icon={<LeftOutlined />}
           disabled={!canPrev}
           onClick={onPrev}
-          style={{ padding: '0 4px' }}
+          style={{
+            padding: '4px',
+            borderRadius: 8,
+            width: 32,
+            height: 32,
+          }}
         />
         <Typography.Text style={{ fontSize: 12 }}>
           {currentIndex} of {totalSlides}
@@ -71,7 +77,12 @@ const ActiveSlideNavigator: React.FC<ActiveSlideNavigatorProps> = ({
           icon={<RightOutlined />}
           disabled={!canNext}
           onClick={onNext}
-          style={{ padding: '0 4px' }}
+          style={{
+            padding: '4px',
+            borderRadius: 8,
+            width: 32,
+            height: 32,
+          }}
         />
       </div>
     </div>

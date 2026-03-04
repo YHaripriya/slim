@@ -9,35 +9,29 @@ export const StyledButton = styled(Button)<StyledButtonProps>`
   && {
     min-width: 4rem;
     height: 2rem;
-    border-radius: 0.25rem;
+    border-radius: 0.375rem;
     border: none;
     color: #000;
     background-color: transparent;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
   }
-
-  /* ${(props) =>
-    props.selected
-      ? `&&{
-          background-color: #4E1DCC !important;
-          color: #fff;
-          border: 1px solid #4E1DCC;
-  }`
-      : `&&{
-          background-color: #f0f0f0;
-  }`} */
+  &&:focus,
+  &&:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(50, 120, 255, 0.25);
+  }
   ${(props) =>
     props.selected
       ? `&&{
              color: rgb(50, 120, 255) !important;
-    background: rgb(28, 131, 175, 0.08) !important;
-         
+    background: rgba(50, 120, 255, 0.08) !important;
   }`
       : `&&{
           color: rgba(0, 0, 0, 0.54);
   }`}
 
   &:hover {
-    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   }
 `
 
@@ -140,34 +134,46 @@ export const ViewerHeaderRight = styled.div`
   justify-content: flex-end;
 `
 
-/** Left icon nav container (vertical bar with icons) */
+/** Left icon nav container (vertical bar with icons) – sleek vertical strip */
 export const LeftNavContainer = styled.div`
-  width: 48px;
-  min-width: 48px;
+  width: 52px;
+  min-width: 52px;
   height: 100%;
-  background: rgba(0, 0, 0, 0.06);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(248, 249, 250, 0.98) 100%
+  );
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 8px;
+  padding-top: 10px;
+  gap: 4px;
   flex-shrink: 0;
   border-right: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.8);
   z-index: 15;
 `
 
-/** Icon button in left nav */
+/** Icon button in left nav – sleek rounded icon button, no harsh focus outline */
 export const LeftNavButton = styled(Button)<{ $selected?: boolean }>`
   && {
-    width: 48px;
-    height: 48px;
-    border-radius: 0;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 10px;
     border: none;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(0, 0, 0, 0.65);
-    transition: background-color 0.25s linear;
+    color: rgba(0, 0, 0, 0.6);
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: none;
+  }
+  &&:focus,
+  &&:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(50, 120, 255, 0.25);
   }
   ${(p) =>
     p.$selected
@@ -175,11 +181,12 @@ export const LeftNavButton = styled(Button)<{ $selected?: boolean }>`
     && {
       background-color: rgb(50, 120, 255) !important;
       color: #fff !important;
+      box-shadow: 0 2px 8px rgba(50, 120, 255, 0.3);
     }
   `
       : `
     &&:hover {
-      background-color: rgba(0, 0, 0, 0.04);
+      background-color: rgba(0, 0, 0, 0.06);
       color: rgba(0, 0, 0, 0.88);
     }
   `}
@@ -213,4 +220,71 @@ export const RightMenu = styled(Col)`
 
   }
 
+`
+
+/** Slide Gallery panel: search and list container */
+export const SlideGallerySearch = styled.input`
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  font-size: 13px;
+  background: #f5f5f5;
+  outline: none;
+  margin-bottom: 12px;
+  &::placeholder {
+    color: rgba(0, 0, 0, 0.4);
+  }
+`
+
+/** Wrapper that groups the selected study card and its "Slides in this study" list as one visual unit */
+export const SlideGalleryStudyGroup = styled.div`
+  border-radius: 12px;
+  border: 1px solid rgba(50, 120, 255, 0.25);
+  background: linear-gradient(
+    180deg,
+    rgba(50, 120, 255, 0.04) 0%,
+    rgba(50, 120, 255, 0.01) 100%
+  );
+  padding: 12px;
+  margin-bottom: 12px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  &:hover {
+    border-color: rgba(50, 120, 255, 0.4);
+    box-shadow: 0 2px 12px rgba(50, 120, 255, 0.08);
+  }
+`
+
+/** Single slide card in gallery */
+export const SlideGalleryCard = styled.div<{ $selected?: boolean }>`
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid
+    ${(p) => (p.$selected ? 'rgb(50, 120, 255)' : 'rgba(0, 0, 0, 0.08)')};
+  background: #fff;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  &:hover {
+    border-color: ${(p) => (p.$selected ? 'rgb(50, 120, 255)' : 'rgba(0, 0, 0, 0.15)')};
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+`
+
+/** Circular tick mark for selected slide */
+export const SlideGalleryTick = styled.div`
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgb(50, 120, 255);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
 `
