@@ -7,12 +7,14 @@ interface StyledButtonProps {
 
 export const StyledButton = styled(Button)<StyledButtonProps>`
   && {
-    min-width: 4rem;
+    min-width: 2rem;
     height: 2rem;
     border-radius: 0.375rem;
     border: none;
+    outline: none;
     color: #000;
     background-color: transparent;
+    box-shadow: none;
     transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
   }
   &&:focus,
@@ -101,7 +103,7 @@ export const ToolbarContainer = styled.div`
 /** Single header bar for slide viewer: three flex partitions (left | center | right) */
 export const ViewerHeaderBar = styled.div`
   display: flex;
-  align-items: center;
+  align-items: baseline;
   width: 100%;
   padding: 8px 12px;
   gap: 12px;

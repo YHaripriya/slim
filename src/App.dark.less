@@ -39,8 +39,48 @@
   font-size: 'medium';
 }
 
+/* Smaller overview map (default ol is 150px) */
+.ol-overviewmap .ol-overviewmap-map {
+  width: 11rem !important;
+  height: 8rem !important;
+}
+
 .ol-overviewmap-box {
   border: 2px solid @primary-color !important;
+}
+
+/* Sleek overview map toggle: borderless, Ant Design–style icon */
+.ol-overviewmap button {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  background: fade(@primary-color, 12%) !important;
+  color: @primary-color !important;
+  box-shadow: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 0.2s, color 0.2s !important;
+  & span {
+    display: none !important;
+  }
+  /* Left chevron when expanded (collapse) – Ant Design LeftOutlined style */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024' fill='currentColor'%3E%3Cpath d='M724 218.3V141c0-6.7-7.7-10.4-12.9-6.3L260.3 486.8c-16.4 12.8-16.4 37.5 0 50.3l450.8 352.1c5.3 4.1 12.9.4 12.9-6.3v-77.3c0-4.9-2.3-9.6-6.1-12.6l-360-281 360-281.1c3.8-3 6.1-7.7 6.1-12.6z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 14px 14px !important;
+  &:hover {
+    background-color: fade(@primary-color, 20%) !important;
+  }
+}
+
+/* Collapsed state: show right chevron (expand) – Ant Design RightOutlined style */
+.ol-overviewmap.ol-collapsed button {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024' fill='currentColor'%3E%3Cpath d='M765.7 486.8L314.9 134.7c-5.3-4.1-12.9-.4-12.9 6.3v77.3c0 4.9 2.3 9.6 6.1 12.6l360 281.1-360 281.1c-3.8 3-6.1 7.7-6.1 12.6V892c0 6.7 7.7 10.4 12.9 6.3l450.8-352.1c16.4-12.8 16.4-37.5 0-50.3z'/%3E%3C/svg%3E") !important;
 }
 
 /* Reposition overview map when Slide metadata (left) or Overlay masks (right) panel is open */
